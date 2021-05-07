@@ -22,7 +22,7 @@ python3 main.py $model_name $real_image_path -f $feature_name
 `main.py` will first do the GAN inversion on all original and modified images, get the latent codes and do the subtraction to get the specified direction (If more than one instances are given, do the average). It will save all latent codes and the direction in `results/$feature_name/direction.npz`, then apply this direction to all real images. The visualization will be saved in `results/$feature_name/visualization.html`
 
 
-** A simple example: **
+**A simple example:**
 ```bash
 python3 main.py 'styleganinv_ffhq256' 'data/real_image' -f glasses
 ```
