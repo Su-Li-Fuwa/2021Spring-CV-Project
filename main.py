@@ -48,6 +48,19 @@ def parse_args():
                         help='Which GPU(s) to use. (default: `0`)')
     return parser.parse_args()
 
+def directionFindByInversion_modified(ori_img, mod_img, inverter, is_save = True):
+    image_size = inverter.G.resolution
+    direction_list = []
+    ori_code, _ = inverter.easy_invert(ori_img, 5)
+    mod_code, _ = inverter.easy_invert(mod_img, 5)
+    direction_list.append(mod_code-ori_code)
+    # if is_save:
+    #     feature_name = src_path.split('/')[-1]
+    #     save_path = f'results/{feature_name}/direction.npz'
+    #     np.savez(save_path, ori_code = np.array(ori_code_list), mod_code = np.array(mod_code_list),
+    #                             direction = np.array(direction_list))
+    return np.array(direction_list).mean(axis = 0)
+
 
 def directionFindByInversion(src_path, inverter, is_save = True):
     """
@@ -80,6 +93,46 @@ def directionFindByInversion(src_path, inverter, is_save = True):
                                 direction = np.array(direction_list))
     
     return np.array(direction_list).mean(axis = 0)
+
+def manipulation_modified(inverter, direction, layers, start_distance, end_distance, step, image_path = 'data/real_image', viz_size = 256, feature_name = 'temp'):
+    """ do the manipulation with given direction and latent code """
+    image_dir = image_path
+    image_dir_name = os.path.basename(image_dir.rstrip('/'))
+    assert os.path.exists(image_dir)
+    assert os.path.exists(f'{image_dir}/inverted_codes.npy')    # Simplified
+
+    generator = inverter.G
+
+    image_list = []
+    with open(f'{image_dir}/image_list.txt', 'r') as f:
+        for line in f:
+            name = os.path.splitext(os.path.basename(line.strip()))[0]
+            assert os.path.exists(f'{image_dir}/{name}_ori.png')
+            assert os.path.exists(f'{image_dir}/{name}_inv.png')
+            image_list.append(name)
+    latent_codes = np.load(f'{image_dir}/inverted_codes.npy')
+    assert latent_codes.shape[0] == len(image_list)
+    num_images = latent_codes.shape[0]
+
+    boundary = direction
+    manipulate_layers = layers
+
+    codes = manipulate(latent_codes=latent_codes,
+                        boundary=boundary,
+                        start_distance=start_distance,
+                        end_distance=end_distance,
+                        step=step,
+                        layerwise_manipulation=True,
+                        num_layers=generator.num_layers,
+                        manipulate_layers=manipulate_layers,
+                        is_code_layerwise=True,
+                        is_boundary_layerwise=True)
+    results = []
+    for img_idx in tqdm(range(num_images), leave=False):
+        output_images = generator.easy_synthesize(codes[img_idx], latent_space_type='wp')['image']
+        results.append(output_images)
+
+    return results
 
 
 def manipulation(image_path, inverter, direction, layers, step = 7, viz_size = 256, 
