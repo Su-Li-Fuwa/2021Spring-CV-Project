@@ -99,14 +99,16 @@ def run_the_app():
     # original_image, modified_image, direction, start_d, end_d, step_l, image_idx = selector_ui(image_size)
     original_image, modified_image, direction, start_d, end_d, step_l = selector_ui(image_size)
     draw_image(original_image, modified_image)
-    if direction is None:
-        direction = directionFindByInversion_modified(original_image, modified_image, inverter, True)
 
-    # bug!
-    @st.cache()
-    def find_direction(direction):
-        return direction
-    dire = find_direction(direction)
+    # debugged!
+    @st.cache(hash_funcs={StyleGANInverter: lambda _: None})
+    def find_direction(original_image, modified_image, inverter):
+        return directionFindByInversion_modified(original_image, modified_image, inverter)
+
+
+    if direction is None:
+        dire = find_direction(original_image, modified_image, inverter)
+    else:   dire = direction
 
     manipulate_layers = list(range(inverter.G.num_layers))
     step_num = int((end_d - start_d)/step_l)

@@ -48,8 +48,8 @@ def parse_args():
                         help='Which GPU(s) to use. (default: `0`)')
     return parser.parse_args()
 
-def directionFindByInversion_modified(ori_img, mod_img, inverter, is_save = True):
-    image_size = inverter.G.resolution
+def directionFindByInversion_modified(ori_img, mod_img, inverter):
+    #image_size = inverter.G.resolution
     direction_list = []
     ori_code, _ = inverter.easy_invert(ori_img, 5)
     mod_code, _ = inverter.easy_invert(mod_img, 5)
