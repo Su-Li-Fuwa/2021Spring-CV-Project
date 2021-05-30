@@ -6,7 +6,8 @@ import torch
 import streamlit as st
 import SessionState
 import pandas as pd
-import os, urllib, cv2
+import os, cv2
+import urllib.request as urlreq
 from main import directionFindByInversion_modified
 from main import manipulation_modified
 from utils.inverter import StyleGANInverter
@@ -52,7 +53,7 @@ def download_file(file_path):
         weights_warning = st.warning("Downloading %s..." % file_path)
         progress_bar = st.progress(0)
         with open(file_path, "wb") as output_file:
-            with urllib.request.urlopen(EXTERNAL_DEPENDENCIES[file_path]["url"]) as response:
+            with urlreq.urlopen(EXTERNAL_DEPENDENCIES[file_path]["url"]) as response:
                 length = int(response.info()["Content-Length"])
                 counter = 0.0
                 MEGABYTES = 2.0 ** 20.0
@@ -197,14 +198,18 @@ def draw_image_series(imgs, image_size):
 
 # External files to download.
 EXTERNAL_DEPENDENCIES = {
-    # "yolov3.weights": {
-    #     "url": "https://pjreddie.com/media/files/yolov3.weights",
-    #     "size": 248007048
-    # },
-    # "yolov3.cfg": {
-    #     "url": "https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg",
-    #     "size": 8342
-    # }
+    "./models/pretrain/styleganinv_ffhq256_generator.pth": {
+        "url": "https://cloud.tsinghua.edu.cn/d/15e59c417fd34fad95f0/files/?p=%2Fstyleganinv_ffhq256_generator.pth&dl=1",
+        "size": 118807232
+    },
+    "./models/pretrain/styleganinv_ffhq256_encoder.pth": {
+        "url": "https://cloud.tsinghua.edu.cn/d/15e59c417fd34fad95f0/files/?p=%2Fstyleganinv_ffhq256_encoder.pth&dl=1",
+        "size": 661456905
+    },
+    "./models/pretrain/vgg16.pth": {
+        "url": "https://cloud.tsinghua.edu.cn/d/15e59c417fd34fad95f0/files/?p=%2Fvgg16.pth&dl=1",
+        "size": 58862227
+    }
 }
 if __name__ == '__main__':
     main()
