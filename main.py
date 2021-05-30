@@ -94,24 +94,27 @@ def directionFindByInversion(src_path, inverter, is_save = True):
     
     return np.array(direction_list).mean(axis = 0)
 
-def manipulation_modified(inverter, direction, layers, start_distance, end_distance, step, image_path = 'data/real_image', viz_size = 256, feature_name = 'temp'):
+def manipulation_modified(inverter, direction, layers, start_distance, end_distance, step, image_path = 'data/real_image', real_img_code = None):
     """ do the manipulation with given direction and latent code """
-    image_dir = image_path
-    image_dir_name = os.path.basename(image_dir.rstrip('/'))
-    assert os.path.exists(image_dir)
-    assert os.path.exists(f'{image_dir}/inverted_codes.npy')    # Simplified
-
     generator = inverter.G
+    if image_path:
+        image_dir = image_path
+        assert os.path.exists(image_dir)
+        assert os.path.exists(f'{image_dir}/inverted_codes.npy')    # Simplified
 
-    image_list = []
-    with open(f'{image_dir}/image_list.txt', 'r') as f:
-        for line in f:
-            name = os.path.splitext(os.path.basename(line.strip()))[0]
-            assert os.path.exists(f'{image_dir}/{name}_ori.png')
-            assert os.path.exists(f'{image_dir}/{name}_inv.png')
-            image_list.append(name)
-    latent_codes = np.load(f'{image_dir}/inverted_codes.npy')
-    assert latent_codes.shape[0] == len(image_list)
+        image_list = []
+        with open(f'{image_dir}/image_list.txt', 'r') as f:
+            for line in f:
+                name = os.path.splitext(os.path.basename(line.strip()))[0]
+                assert os.path.exists(f'{image_dir}/{name}_ori.png')
+                assert os.path.exists(f'{image_dir}/{name}_inv.png')
+                image_list.append(name)
+        latent_codes = np.load(f'{image_dir}/inverted_codes.npy')
+        assert latent_codes.shape[0] == len(image_list)
+
+    else:
+        latent_codes = real_img_code
+    #print(latent_codes.shape)
     num_images = latent_codes.shape[0]
 
     boundary = direction

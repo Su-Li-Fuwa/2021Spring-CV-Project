@@ -97,72 +97,103 @@ def run_the_app():
     image_size = inverter.G.resolution
 
     # original_image, modified_image, direction, start_d, end_d, step_l, image_idx = selector_ui(image_size)
-    original_image, modified_image, direction, start_d, end_d, step_l = selector_ui(image_size)
-    draw_image(original_image, modified_image)
+    original_image, modified_image, direction, magnitude_d, step_num, img_type, real_img = selector_ui(image_size)
+    
+    if original_image.any(): draw_image(original_image, modified_image)
 
     # debugged!
     @st.cache(hash_funcs={StyleGANInverter: lambda _: None})
     def find_direction(original_image, modified_image, inverter):
         return directionFindByInversion_modified(original_image, modified_image, inverter)
 
+    @st.cache(hash_funcs={StyleGANInverter: lambda _: None})
+    def find_latent_code(real_img, inverter):
+        return inverter.easy_invert(real_img, 0)[0]
+    
+    real_img_code = []
+    if img_type == "upload":
+        real_img_code = [find_latent_code(real_img[idx], inverter)[0] for idx in range(len(real_img)) ]
 
-    if direction is None:
-        dire = find_direction(original_image, modified_image, inverter)
-    else:   dire = direction
+    dire = 0
+    for idx in range(0, len(direction)):
+        if (direction[idx] == -1).all():
+            dire += find_direction(original_image, modified_image, inverter) * magnitude_d[idx]
+        else:
+            dire += direction[idx] * magnitude_d[idx]
 
     manipulate_layers = list(range(inverter.G.num_layers))
-    step_num = int((end_d - start_d)/step_l)
 
     if st.button("Run"):
-        target = manipulation_modified(inverter, dire, manipulate_layers, start_d, end_d, step_num)
-        draw_image_series(target)
+        if img_type == "upload":
+            target = manipulation_modified(inverter, dire, manipulate_layers, -1, 1, step_num, image_path = None, real_img_code= np.array(real_img_code))
+        else:
+            target = manipulation_modified(inverter, dire, manipulate_layers, -1, 1, step_num)
+        draw_image_series(target, image_size)
 
 def selector_ui(image_size):
     st.sidebar.markdown("# Settings")
 
-    semantic_type = st.sidebar.selectbox("Choose semantics: ", ["glasses", "DIY"], 0)
-    start_d, end_d = st.sidebar.slider("Set the step length: ", -3.0, 3.0, [-0.5,0.5])
-    step_l = st.sidebar.slider("Set the step length: ", 0.0, 2.0, 0.25)
-    # image_idx = st.sidebar.number_input("Image index: ", value=10, min_value=0, max_value=None, step=1)
+    num_semantics = 3
+    magnitude_d = []
+    direction = []
+    original_image, modified_image, real_img = np.array([]), np.array([]), np.array([])
 
-    # if not os.path.exists(f'results/{semantic_type}'):
-    #     os.mkdir(f'results/{semantic_type}')
+    for sem_idx in range(num_semantics):
 
-    if semantic_type == "DIY":
-        ori = st.file_uploader("Original Image here: ",type=['png','jpeg','jpg'])
-        mod = st.file_uploader("Self-modified Image here: ",type=['png','jpeg','jpg'])
-        ori = Image.open(ori)
-        mod = Image.open(mod)
-        ori = cv2.cvtColor(np.asarray(ori),cv2.COLOR_RGB2BGR)
-        mod = cv2.cvtColor(np.asarray(mod),cv2.COLOR_RGB2BGR)
-        original_image = ori[:, :, ::-1]
-        modified_image = mod[:, :, ::-1]
-        direction = None
+        semantic_type = st.sidebar.selectbox(f"Choose semantics {sem_idx}: ", ["None", "glasses", "beard", "DIY"], 0)
+        if semantic_type == "None": continue
+        magnitude_d.append(st.sidebar.slider(f"Set the magnitude of {sem_idx}: ", 0.0, 3.0, 0.5))
 
-    else:
-        try:
-            original_image = load_image(f'data/{semantic_type}/ori.png')
-            modified_image = load_image(f'data/{semantic_type}/mod.png')
-            if os.path.exists(f'results/{semantic_type}/direction.npz'):
-                direction = np.load(f'results/{semantic_type}/direction.npz')['direction'].mean(axis = 0)
-            else: direction = None 
+        if semantic_type == "DIY":
+            ori = st.file_uploader("Original Image here: ",type=['png','jpeg','jpg'])
+            mod = st.file_uploader("Self-modified Image here: ",type=['png','jpeg','jpg'])
 
-        except FileNotFoundError:
-            pass   # ?????
-            
-    original_image = resize_image(original_image, (image_size, image_size))
-    modified_image = resize_image(modified_image, (image_size, image_size))
+            if np.array(mod == None).any(): continue
 
-    return original_image, modified_image, direction, start_d, end_d, step_l#, image_idx
+            ori = Image.open(ori)
+            mod = Image.open(mod)
+            ori = cv2.cvtColor(np.asarray(ori),cv2.COLOR_RGB2BGR)
+            mod = cv2.cvtColor(np.asarray(mod),cv2.COLOR_RGB2BGR)
+            original_image = ori[:, :, ::-1]
+            modified_image = mod[:, :, ::-1]
+            original_image = resize_image(original_image, (image_size, image_size))
+            modified_image = resize_image(modified_image, (image_size, image_size))
+            direction.append(np.array([-1]))    # currently only allow one DIY, direction needs to be calculated.
+        
+        else:
+            try:
+                # original_image = load_image(f'data/{semantic_type}/ori.png')
+                # modified_image = load_image(f'data/{semantic_type}/mod.png')
+                # if os.path.exists(f'results/{semantic_type}/direction.npz'):
+                direction.append(np.load(f'results/{semantic_type}/direction.npz')['direction'].mean(axis = 0))
+                # else: direction.append(np.array([-1]))
+            except FileNotFoundError:
+                pass   # predetermined feature needs saved direction. 
+    
+    step_n = st.sidebar.slider(f"Set the number of step: ", 1, 4, 1, 1)
+    
+    # whether use default image set
+    img_type = st.sidebar.selectbox(f"Choose image set: ", ["default", "upload"], 0)
+    real_img_list = []
+    if img_type == "upload":
+        file_list = st.file_uploader("Real Image here: ", type=['png','jpeg','jpg'], accept_multiple_files=True)
+        for img in file_list:
+            real_img = Image.open(img)
+            real_img = cv2.cvtColor(np.asarray(real_img),cv2.COLOR_RGB2BGR)
+            real_img = real_img[:, :, ::-1]
+            real_img = resize_image(real_img, (image_size, image_size))
+            real_img_list.append(real_img)
+
+    return original_image, modified_image, direction, magnitude_d, step_n, img_type, real_img_list #, image_idx
 
 def draw_image(img1, img2):
     st.subheader("Original Image / Manually Modified Image")
     st.image([img1,img2])
 
-def draw_image_series(imgs):
+def draw_image_series(imgs, image_size):
     st.subheader("Results")
     for img_series in imgs:
-        st.image(img_series)
+        st.image(img_series, width=int(image_size*2/len(img_series)))
 
 # External files to download.
 EXTERNAL_DEPENDENCIES = {
