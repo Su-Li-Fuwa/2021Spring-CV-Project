@@ -56,7 +56,7 @@ def directionFindByInversion_modified(ori_img, mod_img, inverter):
     direction_list.append(mod_code-ori_code)
     # if is_save:
     #     feature_name = src_path.split('/')[-1]
-    #     save_path = f'results/{feature_name}/direction.npz'
+    #     save_path = f'data/{feature_name}/direction.npz'
     #     np.savez(save_path, ori_code = np.array(ori_code_list), mod_code = np.array(mod_code_list),
     #                             direction = np.array(direction_list))
     return np.array(direction_list).mean(axis = 0)
@@ -88,13 +88,12 @@ def directionFindByInversion(src_path, inverter, is_save = True):
     
     if is_save:
         feature_name = src_path.split('/')[-1]
-        save_path = f'results/{feature_name}/direction.npz'
-        np.savez(save_path, ori_code = np.array(ori_code_list), mod_code = np.array(mod_code_list),
-                                direction = np.array(direction_list))
+        save_path = f'data/{feature_name}/direction.npz'
+        np.savez(save_path, ori_code = np.array(ori_code_list), mod_code = np.array(mod_code_list), direction = np.array(direction_list))
     
     return np.array(direction_list).mean(axis = 0)
 
-def manipulation_modified(inverter, direction, layers, start_distance, end_distance, step, image_path = 'data/real_image', real_img_code = None):
+def manipulation_modified(inverter, direction, layers, start_distance, end_distance, step, image_path = 'pic_source/real_image', real_img_code = None):
     """ do the manipulation with given direction and latent code """
     generator = inverter.G
     if image_path:
@@ -146,7 +145,7 @@ def manipulation(image_path, inverter, direction, layers, step = 7, viz_size = 2
     assert os.path.exists(image_dir)
     assert os.path.exists(f'{image_dir}/inverted_codes.npy')    # Simplified
 
-    output_dir = 'results/' + feature_name 
+    output_dir = 'data/' + feature_name 
 
     generator = inverter.G
 
@@ -202,8 +201,8 @@ def manipulation(image_path, inverter, direction, layers, step = 7, viz_size = 2
 if __name__ == '__main__':
     args = parse_args()
 
-    if not os.path.exists(f'results/{args.feature_name}'):
-        os.mkdir(f'results/{args.feature_name}')
+    if not os.path.exists(f'data/{args.feature_name}'):
+        os.mkdir(f'data/{args.feature_name}')
 
     inverter = StyleGANInverter(
                     args.model_name,
@@ -214,8 +213,8 @@ if __name__ == '__main__':
                     regularization_loss_weight=args.loss_weight_enc,
                     logger=None)
     
-    if os.path.exists(f'results/{args.feature_name}/direction.npz'):
-        direction = np.load(f'results/{args.feature_name}/direction.npz')['direction'].mean(axis = 0)
+    if os.path.exists(f'data/{args.feature_name}/direction.npz'):
+        direction = np.load(f'data/{args.feature_name}/direction.npz')['direction'].mean(axis = 0)
     else:   direction = directionFindByInversion(f'data/{args.feature_name}', inverter, True)
 
     manipulate_layers = list(range(inverter.G.num_layers))
