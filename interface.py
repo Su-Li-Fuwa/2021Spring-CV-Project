@@ -16,6 +16,7 @@ from utils.visualizer import HtmlPageVisualizer
 from utils.visualizer import save_image, load_image, resize_image
 from utils.editor import manipulate
 from PIL import Image
+import datetime
 
 # Streamlit encourages well-structured code, like starting execution in a main() function.
 def main():
@@ -98,7 +99,7 @@ def run_the_app():
     image_size = inverter.G.resolution
 
     # original_image, modified_image, direction, start_d, end_d, step_l, image_idx = selector_ui(image_size)
-    original_image, modified_image, direction, magnitude_d, step_num, img_type, real_img = selector_ui(image_size)
+    original_image, modified_image, direction, magnitude_d, step_num, img_type, real_img, semantic_type = selector_ui(image_size)
     
     if original_image.any(): draw_image(original_image, modified_image)
 
@@ -130,6 +131,24 @@ def run_the_app():
         else:
             target = manipulation_modified(inverter, dire, manipulate_layers, -1, 1, step_num)
         draw_image_series(target, image_size)
+    
+    try:
+        direction_name = st.text_input("Direction name: ") #, "DIY_" + str(datetime.datetime.now()))
+        if(direction_name):
+            if st.button("Save"):
+                save_path = f'data/{direction_name}/'
+                dire_list = []
+                dire_list.append(dire)
+                if not os.path.exists(f'data/{direction_name}'):
+                    os.mkdir(f'data/{direction_name}')
+                np.savez(save_path+'direction.npz', direction = np.array(dire_list))      
+                cv2.imwrite(save_path + 'ori.png', cv2.cvtColor(np.asarray(original_image),cv2.COLOR_BGR2RGB))
+                cv2.imwrite(save_path + 'mod.png', cv2.cvtColor(np.asarray(modified_image),cv2.COLOR_BGR2RGB))
+                with open(f'data/semantic_list.txt', 'a') as f:
+                    f.write(direction_name+'\n')
+                st.success("Saved the direction and the images to ./data/"+direction_name+"!")
+    except:
+        st.warning("You should only save 'DIY' directions. Check whether the semantic is 'DIY'.")
 
 def selector_ui(image_size):
     st.sidebar.markdown("# Settings")
@@ -139,9 +158,19 @@ def selector_ui(image_size):
     direction = []
     original_image, modified_image, real_img = np.array([]), np.array([]), np.array([])
 
+    f = open("data/semantic_list.txt")
+    sems = f.read().splitlines()
+    f.close()
+    for name in sems:
+        assert os.path.exists(f'data/{name}/ori.png')
+        assert os.path.exists(f'data/{name}/mod.png')
+        assert os.path.exists(f'data/{name}/direction.npz')
+    sems.insert(0, "None")
+    sems.append("DIY")
+
     for sem_idx in range(num_semantics):
 
-        semantic_type = st.sidebar.selectbox(f"Choose semantics {sem_idx}: ", ["None", "glasses", "beard", "DIY"], 0)
+        semantic_type = st.sidebar.selectbox(f"Choose semantics {sem_idx}: ", sems, 0)
         if semantic_type == "None": continue
         magnitude_d.append(st.sidebar.slider(f"Set the magnitude of {sem_idx}: ", 0.0, 3.0, 0.5))
 
@@ -165,8 +194,8 @@ def selector_ui(image_size):
             try:
                 # original_image = load_image(f'data/{semantic_type}/ori.png')
                 # modified_image = load_image(f'data/{semantic_type}/mod.png')
-                # if os.path.exists(f'results/{semantic_type}/direction.npz'):
-                direction.append(np.load(f'results/{semantic_type}/direction.npz')['direction'].mean(axis = 0))
+                # if os.path.exists(f'data/{semantic_type}/direction.npz'):
+                direction.append(np.load(f'data/{semantic_type}/direction.npz')['direction'].mean(axis = 0))
                 # else: direction.append(np.array([-1]))
             except FileNotFoundError:
                 pass   # predetermined feature needs saved direction. 
@@ -177,7 +206,7 @@ def selector_ui(image_size):
     img_type = st.sidebar.selectbox(f"Choose image set: ", ["default", "upload"], 0)
     real_img_list = []
     if img_type == "upload":
-        file_list = st.file_uploader("Real Image here: ", type=['png','jpeg','jpg'], accept_multiple_files=True)
+        file_list = st.file_uploader(f"Real image here: ", type=['png','jpeg','jpg'], accept_multiple_files=True)
         for img in file_list:
             real_img = Image.open(img)
             real_img = cv2.cvtColor(np.asarray(real_img),cv2.COLOR_RGB2BGR)
@@ -185,7 +214,7 @@ def selector_ui(image_size):
             real_img = resize_image(real_img, (image_size, image_size))
             real_img_list.append(real_img)
 
-    return original_image, modified_image, direction, magnitude_d, step_n, img_type, real_img_list #, image_idx
+    return original_image, modified_image, direction, magnitude_d, step_n, img_type, real_img_list, semantic_type #, image_idx
 
 def draw_image(img1, img2):
     st.subheader("Original Image / Manually Modified Image")
